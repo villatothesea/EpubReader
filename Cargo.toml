@@ -1,0 +1,22 @@
+[package]
+name = "mireader-reader-epub"
+description = "MiReader reader plugin: EPUB 2 and 3 books"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "mireader-reader-epub"
+path = "src/main.rs"
+
+[dependencies]
+mireader-reader-sdk = { path = "../../crates/reader-sdk" }
+roxmltree = "0.21"
+zip = { version = "7", default-features = false, features = ["deflate-flate2"] }
+# zip's deflate needs a flate2 backend; the pure-Rust one.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+[dev-dependencies]
+mireader-reader-host = { path = "../../crates/reader-host" }
+tempfile = { workspace = true }
