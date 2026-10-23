@@ -56,6 +56,38 @@ fn normalize_entities(text: &str) -> std::borrow::Cow<'_, str> {
     out.into()
 }
 
+/// MIREADER (round 15, #46): how an in-book link leaves the converter, before
+/// the book resolves it.
+pub const INBOOK: &str = "inbook:";
+
+/// MIREADER (round 15, #46): the heading each `id` in a section leads to —
+/// the element's own text when it is a heading, else its first heading
+/// inside, else the next heading after it — for in-book links that land
+/// on a fragment. `(id, heading text)`.
+pub fn anchor_headings(text: &str) -> Vec<(String, String)> {
+    let text = normalize_entities(text);
+    let options = roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+    let Ok(doc) = roxmltree::Document::parse_with_options(&text, options) else {
+        return Vec::new();
+    };
+    let is_heading = |n: &roxmltree::Node| n.is_element() && matches!(name(*n).as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6");
+    let heading_text = |n: roxmltree::Node| collapse(&n.descendants().filter(|d| d.is_text()).filter_map(|d| d.text()).collect::<String>()).trim().to_string();
+    let nodes: Vec<roxmltree::Node> = doc.descendants().collect();
+    let mut out = Vec::new();
+    for (ix, node) in nodes.iter().enumerate() {
+        let Some(id) = node.attribute("id").filter(|_| node.is_element()) else { continue };
+        let heading = if is_heading(node) {
+            Some(*node)
+        } else {
+            node.descendants().find(|d| is_heading(d)).or_else(|| nodes[ix + 1..].iter().copied().find(|d| is_heading(d)))
+        };
+        if let Some(heading) = heading.map(heading_text).filter(|t| !t.is_empty()) {
+            out.push((id.to_string(), heading));
+        }
+    }
+    out
+}
+
 pub fn parse_document(text: &str, resolve: ResolveImage) -> Result<Vec<Block>, String> {
     let text = normalize_entities(text);
     let options = roxmltree::ParsingOptions {
@@ -343,11 +375,14 @@ fn inline(node: roxmltree::Node, mut style: SpanStyle, link: Option<&str>, out: 
         "s" | "strike" | "del" => style.strike = true,
         "code" | "tt" | "kbd" | "samp" => style.code = true,
         "a" => {
-            // External links only; in-book links read as plain text.
-            if let Some(href) = node.attribute("href")
-                && (href.starts_with("http://") || href.starts_with("https://") || href.starts_with("mailto:"))
-            {
-                own_link = Some(href.to_string());
+            if let Some(href) = node.attribute("href") {
+                if href.starts_with("http://") || href.starts_with("https://") || href.starts_with("mailto:") {
+                    own_link = Some(href.to_string());
+                } else if !href.trim().is_empty() && !href.contains(':') {
+                    // MIREADER (round 15, #46): an in-book link, kept raw;
+                    // the book resolves it to `section:N#Heading` (`lib.rs`).
+                    own_link = Some(format!("{INBOOK}{href}"));
+                }
             }
         }
         "br" => {
@@ -415,7 +450,8 @@ mod tests {
         assert!(spans.iter().any(|s| s.text == "dark" && s.style.italic));
         assert!(spans.iter().any(|s| s.text == "stormy" && s.style.bold));
         assert!(spans.iter().any(|s| s.text == "link" && s.link.as_deref() == Some("https://x.org")));
-        assert!(spans.iter().all(|s| s.text != "inner" || s.link.is_none()));
+        // Round 15 (#46): an in-book link comes out raw, for the book to resolve.
+        assert!(spans.iter().any(|s| s.text == "inner" && s.link.as_deref() == Some("inbook:ch2.xhtml")));
         assert!(matches!(&blocks[2], Block::Quote { blocks } if blocks.len() == 1));
         assert!(matches!(&blocks[3], Block::List { ordered: false, items } if items.len() == 2));
         assert!(matches!(&blocks[4], Block::Code { text, .. } if text == "  code\n  kept"));

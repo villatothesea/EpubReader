@@ -15,7 +15,8 @@ const CHAPTER_ONE: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"><head><title>One</title></head>
 <body><h1>Chapter&nbsp;One</h1><p>It was a <em>bright</em> cold day.</p>
-<p><img src="../images/map.png" alt="The map"/></p></body></html>"#;
+<p><img src="../images/map.png" alt="The map"/></p>
+<p>See <a href="two.xhtml#s">part two</a>, <a href="two.xhtml">chapter two</a>, <a href="../images/map.png">the map</a> and <a href="https://x.org">the web</a>.</p></body></html>"#;
 
 const CHAPTER_TWO: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml"><head><title>Two</title></head>

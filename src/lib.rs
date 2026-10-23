@@ -52,6 +52,35 @@ pub struct Epub<R: Read + Seek> {
     spine: Vec<String>,
     /// Zip path → media type, for resources.
     media_types: HashMap<String, String>,
+    /// MIREADER (round 15, #46): `path#id` → the heading it leads to, read
+    /// once (in-book links resolve through it).
+    anchors: Option<HashMap<String, String>>,
+}
+
+/// MIREADER (round 15, #46): every span in `blocks`, for rewriting links.
+fn each_span(blocks: &mut [Block], f: &mut dyn FnMut(&mut mireader_reader_sdk::Span)) {
+    for block in blocks {
+        match block {
+            Block::Heading { spans, .. } | Block::Paragraph { spans, .. } => spans.iter_mut().for_each(&mut *f),
+            Block::Quote { blocks } => each_span(blocks, f),
+            Block::List { items, .. } => items.iter_mut().for_each(|item| each_span(item, f)),
+            Block::Table { rows, .. } => rows.iter_mut().flatten().flatten().for_each(&mut *f),
+            _ => {}
+        }
+    }
+}
+
+/// `Chapter Two` → `Chapter%20Two` — a heading's text inside a link.
+fn encode_fragment(text: &str) -> String {
+    let mut out = String::new();
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 /// Resolve `href` against the directory of `base` (a zip path), dropping
@@ -242,7 +271,61 @@ impl<R: Read + Seek> Epub<R> {
             info,
             spine,
             media_types,
+            anchors: None,
         })
+    }
+
+    /// MIREADER (round 15, #46): the heading each `path#id` leads to, over
+    /// the whole book (read on the first in-book link).
+    fn anchor_index(&mut self) -> &HashMap<String, String> {
+        if self.anchors.is_none() {
+            let mut index = HashMap::new();
+            for path in self.spine.clone() {
+                if let Ok(text) = read_text(&mut self.zip, &path) {
+                    for (id, heading) in xhtml::anchor_headings(&text) {
+                        index.insert(format!("{path}#{id}"), heading);
+                    }
+                }
+            }
+            self.anchors = Some(index);
+        }
+        self.anchors.as_ref().expect("just built")
+    }
+
+    /// MIREADER (round 15, #46): in-book links become `section:N` (the spine
+    /// section), with `#Heading` when the fragment leads to one — the host
+    /// jumps there. Links to files outside the spine read as plain text.
+    fn resolve_links(&mut self, base: &str, blocks: &mut [Block]) {
+        let mut raw: Vec<String> = Vec::new();
+        each_span(blocks, &mut |span| {
+            if let Some(link) = span.link.as_deref().and_then(|l| l.strip_prefix(xhtml::INBOOK)) {
+                raw.push(link.to_string());
+            }
+        });
+        if raw.is_empty() {
+            return;
+        }
+        let mut resolved: HashMap<String, Option<String>> = HashMap::new();
+        for href in raw {
+            if resolved.contains_key(&href) {
+                continue;
+            }
+            let (file, fragment) = href.split_once('#').map_or((href.as_str(), None), |(f, frag)| (f, Some(frag)));
+            let target = if file.is_empty() { base.to_string() } else { resolve(base, file) };
+            let link = self.spine.iter().position(|s| *s == target).map(|section| {
+                let heading = fragment.and_then(|frag| self.anchor_index().get(&format!("{target}#{}", percent_decode(frag))).cloned());
+                match heading {
+                    Some(heading) => format!("section:{section}#{}", encode_fragment(&heading)),
+                    None => format!("section:{section}"),
+                }
+            });
+            resolved.insert(href, link);
+        }
+        each_span(blocks, &mut |span| {
+            if let Some(link) = span.link.as_deref().and_then(|l| l.strip_prefix(xhtml::INBOOK)) {
+                span.link = resolved.get(link).cloned().flatten();
+            }
+        });
     }
 
     fn section_blocks(&mut self, section: u32) -> Result<Vec<Block>, ReaderError> {
@@ -257,7 +340,9 @@ impl<R: Read + Seek> Epub<R> {
             let key = resolve(&path, src);
             names.contains(&key).then_some(key)
         };
-        Ok(xhtml::parse_document(&text, &resolve_image).unwrap_or_else(|_| xhtml::plain_fallback(&text)))
+        let mut blocks = xhtml::parse_document(&text, &resolve_image).unwrap_or_else(|_| xhtml::plain_fallback(&text));
+        self.resolve_links(&path, &mut blocks);
+        Ok(blocks)
     }
 }
 

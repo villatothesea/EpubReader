@@ -65,3 +65,18 @@ fn hrefs_resolve_against_their_document() {
     assert_eq!(resolve("OEBPS/content.opf", "text/one.xhtml"), "OEBPS/text/one.xhtml");
     assert_eq!(resolve("content.opf", "one.xhtml"), "one.xhtml");
 }
+
+/// MIREADER (round 15, #46): in-book links resolve to the spine section, with
+/// the heading a fragment leads to; a file outside the spine reads as text;
+/// web links stay.
+#[test]
+fn in_book_links_resolve_to_sections_and_headings() {
+    let mut book = open(fixtures::Book { epub2: false, drm: false });
+    let one = book.content(0).unwrap();
+    let Some(Block::Paragraph { spans, .. }) = one.last() else { panic!("{one:?}") };
+    let link = |text: &str| spans.iter().find(|s| s.text == text).and_then(|s| s.link.clone());
+    assert_eq!(link("part two").as_deref(), Some("section:1#Part%20Two"));
+    assert_eq!(link("chapter two").as_deref(), Some("section:1"));
+    assert_eq!(link("the map"), None, "not a section: plain text");
+    assert_eq!(link("the web").as_deref(), Some("https://x.org"));
+}
