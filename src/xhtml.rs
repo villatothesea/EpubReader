@@ -374,6 +374,9 @@ fn inline(node: roxmltree::Node, mut style: SpanStyle, link: Option<&str>, out: 
         "u" | "ins" => style.underline = true,
         "s" | "strike" | "del" => style.strike = true,
         "code" | "tt" | "kbd" | "samp" => style.code = true,
+        // MIREADER (round 16, #80): raised and lowered text.
+        "sup" => style.sup = true,
+        "sub" => style.sub = true,
         "a" => {
             if let Some(href) = node.attribute("href") {
                 if href.starts_with("http://") || href.starts_with("https://") || href.starts_with("mailto:") {
@@ -474,6 +477,15 @@ mod tests {
             }
         );
         assert_eq!(blocks.len(), 12);
+    }
+
+    /// MIREADER (round 16, #80): `<sup>` / `<sub>` keep their rise and drop.
+    #[test]
+    fn sup_and_sub_are_raised_and_lowered() {
+        let blocks = parse("<p>E=mc<sup>2</sup> and H<sub>2</sub>O</p>");
+        let Block::Paragraph { spans, .. } = &blocks[0] else { panic!("{blocks:?}") };
+        assert!(spans.iter().any(|s| s.text == "2" && s.style.sup && !s.style.sub));
+        assert!(spans.iter().any(|s| s.text == "2" && s.style.sub && !s.style.sup));
     }
 
     #[test]
