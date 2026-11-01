@@ -142,18 +142,19 @@ dependencies = [
 
 [[package]]
 name = "mireader-reader-host"
-version = "0.2.105"
+version = "0.2.110"
 dependencies = [
  "mireader-reader-sdk",
  "serde",
  "serde_json",
  "toml",
  "tracing",
+ "windows-sys",
 ]
 
 [[package]]
 name = "mireader-reader-sdk"
-version = "0.2.105"
+version = "0.2.110"
 dependencies = [
  "base64",
  "serde",
