@@ -1,4 +1,4 @@
-# Build this plugin and stage it as a reader package: {Out}\mireader.epub\{reader.toml, exe}.
+# Build this plugin and stage it as a reader package: {Out}\quairone.epub\{reader.toml, exe}.
 #
 #   .\stage.ps1                                    # debug -> ..\MimiReader\target\debug\readers
 #   .\stage.ps1 -Release -Out D:\Programs\MimiReader\readers
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 $buildProfile = if ($Dist) { "reader-dist" } elseif ($Release) { "release" } else { "debug" }
 if (-not $Out) { $Out = "$PSScriptRoot\..\MimiReader\target\$buildProfile\readers" }
 
-$build = @("build", "--manifest-path", "$PSScriptRoot\Cargo.toml", "--bin", "mireader-reader-epub")
+$build = @("build", "--manifest-path", "$PSScriptRoot\Cargo.toml", "--bin", "quairone-reader-epub")
 if ($Dist) { $build += @("--profile", "reader-dist") } elseif ($Release) { $build += "--release" }
 & cargo @build
 if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
@@ -22,5 +22,5 @@ $id = (Select-String -Path "$PSScriptRoot\reader.toml" -Pattern '^id\s*=\s*"([^"
 $package = Join-Path ([IO.Path]::GetFullPath($Out)) $id
 New-Item -ItemType Directory -Force $package | Out-Null
 Copy-Item "$PSScriptRoot\reader.toml" $package -Force
-Copy-Item "$PSScriptRoot\target\$buildProfile\mireader-reader-epub.exe" $package -Force
+Copy-Item "$PSScriptRoot\target\$buildProfile\quairone-reader-epub.exe" $package -Force
 "staged $id -> $package"

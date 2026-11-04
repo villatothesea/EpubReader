@@ -7,7 +7,7 @@ license = "MIT"
 publish = false
 
 [[bin]]
-name = "mireader-reader-epub"
+name = "quairone-reader-epub"
 path = "src/main.rs"
 
 [dependencies]

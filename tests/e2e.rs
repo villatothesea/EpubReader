@@ -10,7 +10,7 @@ use mireader_reader_host::{
     stage_package,
 };
 
-const EXE: &str = env!("CARGO_BIN_EXE_mireader-reader-epub");
+const EXE: &str = env!("CARGO_BIN_EXE_quairone-reader-epub");
 
 fn setup(dir: &Path) -> ReaderHost {
     let readers = dir.join("readers");

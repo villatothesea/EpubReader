@@ -18,7 +18,7 @@ use mireader_reader_sdk::{
     ReaderInfo, SectionInfo, Target, model::blocks_text,
 };
 
-pub const ID: &str = "mireader.epub";
+pub const ID: &str = "quairone.epub";
 
 #[derive(Default)]
 pub struct EpubReader;
