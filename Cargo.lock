@@ -130,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "mireader-reader-epub"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flate2",
  "mireader-reader-host",
@@ -142,7 +142,7 @@ dependencies = [
 
 [[package]]
 name = "mireader-reader-host"
-version = "0.2.110"
+version = "0.2.113"
 dependencies = [
  "mireader-reader-sdk",
  "serde",
@@ -154,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "mireader-reader-sdk"
-version = "0.2.110"
+version = "0.2.113"
 dependencies = [
  "base64",
  "serde",

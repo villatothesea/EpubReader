@@ -1,6 +1,6 @@
 id = "quairone.epub"
 name = "EPUB"
-version = "0.1.0"
+version = "0.1.1"
 protocol = 1
 executable = "quairone-reader-epub"
 extensions = ["epub"]
